@@ -10,12 +10,13 @@ export const signup=async (req,res)=>{
         if(!fullName||!email||!password){
           return res.status(400).json({message:"Fill the required fields"})
         }
-        if (password.length <8){
-          return res.status(400).json({message:"password must be less than 8 characters"})
+        // FIX: Correct password length check. "less than 8" should be "at least 8" (or >= 8)
+        if (password.length < 8){
+          return res.status(400).json({message:"Password must be at least 8 characters"})
         }
         
         const user =await User.findOne({email})
-        if (user) return res.status.json({message:"Email already exists"})
+        if (user) return res.status(400).json({message:"Email already exists"}) // FIX: Corrected res.status.json to res.status(400).json
            
         // Hash password
         const salt=await bcrypt.genSalt(10)
@@ -58,7 +59,6 @@ export const login=async (req,res)=>{
        if(!isPassword){
         res.status(400).json({message:"Incorrect password"})
        }else{
-        // res.status(200).json({message:"successfully logged in"})
         generateToken(user._id,res)
  
         res.status(200).json({
@@ -76,8 +76,13 @@ export const login=async (req,res)=>{
 }
 export const logout=async (req,res)=>{
     try{
-      res.cookie("jwt","",{maxAge:0})
-      res.status(200).json({message:"Loggout out"})
+      res.cookie("jwt","", {
+        maxAge:0,
+        httpOnly: true,
+        sameSite: "None",
+        secure: true,
+      })
+      res.status(200).json({message:"Logged out successfully"})
     }
     catch(error){
       console.log("Error in Logout", error.message);
@@ -114,6 +119,6 @@ export const checkAuth=(req,res)=>{
   }
   catch(error){
     console.log("Error in checkAuth", error.message);
-      res.status(500).json({message:"Internal server error"});
+    res.status(500).json({message:"Internal server error"});
   }
 }
