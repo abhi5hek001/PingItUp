@@ -3,6 +3,8 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
+// Use the VITE_API_URL environment variable set on Vercel.
+// It should point to: https://pingitup-n54z.onrender.com
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const useAuthStore = create((set,get) => ({
@@ -20,7 +22,10 @@ export const useAuthStore = create((set,get) => ({
       set({ authUser: res.data });
       get().connectSocket();
     } catch (error) {
-      console.log("Error in checkAuth:", error);
+      // FIX: Only log the error if it's NOT an expected 401/403 Unauthorized/Forbidden status
+      if (error.response?.status !== 401 && error.response?.status !== 403) {
+          console.error("Error in checkAuth:", error);
+      }
       set({ authUser: null });
     } finally {
       set({ isCheckingAuth: false });
@@ -28,6 +33,7 @@ export const useAuthStore = create((set,get) => ({
   },
 
   signup: async (data) => {
+// ... (rest of signup is unchanged)
     set({ isSigningUp: true });
     try {
       const res = await axiosInstance.post("/auth/signup", data);
@@ -42,6 +48,7 @@ export const useAuthStore = create((set,get) => ({
     }
   },
   logout:async()=>{
+// ... (rest of logout is unchanged)
     try{
         await axiosInstance.post("/auth/logout")
         set({authUser:null})
@@ -61,14 +68,17 @@ export const useAuthStore = create((set,get) => ({
       get().connectSocket();
     }
     catch(error){
-      console.log(error.response.data.message)
-      toast.error(error.response.data.message || "Log In failed")
+      // FIX: Robust error handling to prevent "Cannot read properties of undefined (reading 'data')"
+      console.log("Login error:", error);
+      const errorMessage = error.response?.data?.message || error.message || "Log In failed (Network error or request blocked)";
+      toast.error(errorMessage);
     }
     finally{
       set({isLoggingIn:false})
     }
   },
   updateProfile: async (data) => {
+// ... (rest of updateProfile is unchanged)
     set({ isUpdatingProfile: true });
     try {
       const res = await axiosInstance.put("/auth/update-profile", data);

@@ -17,7 +17,7 @@ export const useChatStore = create((set, get) => ({
     remoteStream: null,
     isCalling: false,
 
-    // --- Core Chat Functions (unchanged) ---
+    // --- Core Chat Functions ---
     getUsers:async()=>{
     set({isUserLoading:true})
     try{
@@ -25,7 +25,10 @@ export const useChatStore = create((set, get) => ({
         set({users:res.data})
     }
     catch(error){
-        toast.error(error.response.data.message)
+        // FIX: Suppress toast for 401/403 errors, as this is expected if a user is not logged in
+        if (error.response?.status !== 401 && error.response?.status !== 403) {
+            toast.error(error.response?.data?.message || "Failed to fetch users.");
+        }
     }
     finally{
         set({isUserLoading:false})
@@ -37,7 +40,7 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Failed to fetch messages.");
     } finally {
       set({ isMessagesLoading: false });
     }
@@ -49,10 +52,11 @@ export const useChatStore = create((set, get) => ({
             set({messages:[...messages,res.data]})
         }
         catch(error){
-            toast.error(error.response.data.message)
+            toast.error(error.response?.data?.message || "Failed to send message.");
         }
 
     },
+// ... (rest of the file is unchanged)
     subscribeToMessages:()=>{
         const {selectedUser}=get()
         if (!selectedUser) return ;
@@ -226,21 +230,8 @@ export const useChatStore = create((set, get) => ({
 
         if (from === selectedUser?._id) {
             if (!peer) {
-                // This handles the case where the answering peer is created *after* receiving the offer.
-                // We assume peer creation is handled by answerCall when the user accepts.
-                // For a more robust system, the offer would be stored until the user answers.
-                // For the purpose of this demo, we'll assume the call is accepted immediately 
-                // after an incomingCall event, and the peer is ready to receive the signal.
-                
-                // If it's an offer and we are not in a call, we should initialize the peer (handled by handleIncomingCall)
-                // If we get a signal (an answer) and we don't have a peer, something went wrong.
-                
-                if (signalData.type === 'offer' && !get().isCalling) {
-                    // This is an alternative/fallback path to handle auto-accept or delayed peer creation
-                    // To keep it simple, we rely on handleIncomingCall first, so we'll skip complex logic here
-                    return;
-                }
-
+                // If the peer is not initialized, we cannot signal.
+                return;
             }
             // Signal the peer with the received data (offer or answer)
             if (peer && !peer.destroyed) {
