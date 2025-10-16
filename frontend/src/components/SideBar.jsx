@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react'
 import SidebarSkeleton from './skeletons/SidebarSkeleton';
 import { useChatStore } from '../store/useChatStore';
-import { Users, Filter } from 'lucide-react'; // Added Filter icon
+import { Users, Filter } from 'lucide-react'; 
 import { useAuthStore } from '../store/useAuthstore';
 
 const SideBar = () => {
   const {getUsers, users, selectedUser, setSelectedUser, isUserLoading}=useChatStore()
 
-  const {onlineUsers}=useAuthStore();
+  // Fetch both onlineUsers and authUser
+  const {onlineUsers, authUser}=useAuthStore();
+  
+  // FIX: Only call getUsers when the user is authenticated (authUser exists)
   useEffect(()=>{
-    getUsers()},
-    [getUsers]
-  )
+    if (authUser) {
+        getUsers();
+    }
+    // Dependency on authUser ensures this runs when the user logs in/out
+  }, [getUsers, authUser]) 
+  
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
   const filteredUsers = showOnlineOnly
