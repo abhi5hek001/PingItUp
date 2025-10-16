@@ -11,7 +11,7 @@ import { app, server } from "./libs/socket.js";
 app
 
 dotenv.config()
-const Port=process.env.PORT;
+const PORT=process.env.PORT;
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -25,7 +25,7 @@ app.use(cors({
 app.use("/api/auth",authRoutes)
 app.use("/api/messages",messageRoutes)
 
-server.listen(Port,()=>{
-    console.log('server is running PORT '+ Port);
+server.listen(PORT,()=>{
+    console.log(`Server is running on PORT ${PORT}`);
     connectDB()
 })

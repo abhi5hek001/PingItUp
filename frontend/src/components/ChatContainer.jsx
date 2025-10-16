@@ -4,12 +4,45 @@ import ChatHeader from "./ChatHeader"
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { useAuthStore } from "../store/useAuthstore";
-import { Check, CheckCheck } from "lucide-react"; // Import for message status
+import { Check, CheckCheck } from "lucide-react"; 
+
+// Component to handle video stream display
+const VideoStream = ({ stream, isLocal, name }) => {
+    const videoRef = useRef(null);
+
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [stream]);
+
+    if (!stream) return null;
+
+    return (
+        <div className={`relative ${isLocal ? 'w-1/3 h-48 self-end' : 'flex-1 h-full'}`}>
+            <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted={isLocal} // Mute local stream to prevent echo
+                className="w-full h-full object-cover rounded-xl shadow-lg border-2 border-primary"
+            />
+            <span className={`absolute top-2 left-2 badge ${isLocal ? 'badge-primary' : 'badge-secondary'}`}>
+                {isLocal ? 'You' : name}
+            </span>
+        </div>
+    );
+};
+
 
 const ChatContainer = () => {
-  const {messages,getMessages,isMessagesLoading,selectedUser,subscribeToMessages,unsubscribeFromMessages}=useChatStore()
+  const {
+      messages,getMessages,isMessagesLoading,selectedUser,
+      subscribeToMessages,unsubscribeFromMessages,
+      localStream, remoteStream, isCalling
+    }=useChatStore()
+
   const {authUser}=useAuthStore();
-  // Using an array of refs for messages or just a single ref for the end of the container
   const messageEndRef=useRef(null);
   
   useEffect(()=>{
@@ -37,6 +70,23 @@ const ChatContainer = () => {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-base-100">
       <ChatHeader/>
+      
+      {/* Video Call Interface (Conditionally Rendered) */}
+      {isCalling && (localStream || remoteStream) ? (
+        <div className="p-4 flex flex-col sm:flex-row gap-4 bg-base-200">
+            {remoteStream ? (
+                <VideoStream stream={remoteStream} isLocal={false} name={selectedUser.fullName} />
+            ) : (
+                <div className="flex-1 h-48 flex items-center justify-center bg-base-300 rounded-xl text-lg font-semibold">
+                    {/* Display when waiting for remote peer to connect */}
+                    Connecting...
+                </div>
+            )}
+            {localStream && <VideoStream stream={localStream} isLocal={true} name="You" />}
+        </div>
+      ) : null}
+
+      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message, index)=>{
           const isSent = message.senderId === authUser._id;
