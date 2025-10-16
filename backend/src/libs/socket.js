@@ -5,11 +5,17 @@ import express from "express";
 const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server, {
-    cors: {
-        origin: ["http://localhost:5173"]
+const allowedOrigins = [
+    "http://localhost:5173", // Local Development
+    "https://ping-it-up.vercel.app", // Vercel Frontend Domain
+    "https://pingitup-n54z.onrender.com" // Render API Domain
+];
+
+const io =new Server(server,{
+    cors:{
+        origin: allowedOrigins, // Use the updated array of origins
     }
-});
+})
 
 export function getReceiverSocketId(userId) {
     return userSocketmap[userId]
