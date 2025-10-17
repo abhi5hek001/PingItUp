@@ -1,74 +1,68 @@
-# Chat Application
+# 🚀 PingItUp: Modern Real-Time Chat & Video Application
 
-A modern, full-stack real-time chat application built with React, Node.js, Express, MongoDB, and Socket.io.
+**PingItUp** is a full-stack, real-time chat application featuring direct messaging, contact management, and one-to-one video calling powered by WebRTC and Socket.IO.
 
-## Features
+The project is split into two main components: a feature-rich **React/Vite frontend** and a **secure Node.js/Express backend**.
 
-- 🔒 User authentication (Sign up, Login, Logout)
-- 💬 Real-time messaging with Socket.io
-- 📷 Profile picture upload (with image preview and cropping)
-- 📨 Send text and image messages
-- 🟢 Online users indicator
-- 📱 Responsive design for desktop and mobile
-- 🗂️ Sidebar with user list and notifications
-- 🌈 Modern UI with Tailwind CSS
+---
 
-## Tech Stack
+## ✨ Features
 
-- **Frontend:** React, Tailwind CSS, Axios, React Hot Toast
-- **Backend:** Node.js, Express, MongoDB, Mongoose, Socket.io, Cloudinary (for image uploads)
-- **Authentication:** JWT & HTTP-only cookies
+* **Real-Time Messaging:** Instantaneous message delivery using Socket.IO.
+* **One-to-One Video Calling (WebRTC):** Secure, peer-to-peer video calls using simple-peer for signaling.
+* **Authentication:** Secure JWT-based authentication with cookie persistence across domains (Vercel/Render friendly).
+* **User Management:** Sign up, log in, view online users, and update profile pictures.
+* **Responsive UI:** Clean, modern, and fully responsive design built with Tailwind CSS and DaisyUI.
+* **Theming:** Multiple built-in dark and light themes (Night, Dracula, Valentine, Forest, etc.) for a personalized experience.
 
-## Getting Started
+---
 
-### Prerequisites
+## 🛠 Tech Stack
 
-- Node.js (v16+)
-- npm or yarn
-- MongoDB (local or Atlas)
+| Component           | Technology                              | Description                                                                    |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------ |
+| Frontend            | React, Vite                             | Fast development setup for the UI.                                             |
+| Styling             | Tailwind CSS, DaisyUI                   | Utility-first CSS for rapid, modern theming and styling.                       |
+| State Management    | Zustand                                 | Lightweight and fast state management.                                         |
+| Real-Time           | Socket.IO-Client, Simple-Peer           | Messaging and WebRTC video call signaling.                                     |
+| Backend             | Node.js, Express                        | REST API and HTTP server.                                                      |
+| Database            | MongoDB, Mongoose                       | NoSQL database for data persistence.                                           |
+| Real-Time Signaling | Socket.IO                               | WebSocket server for chat and WebRTC signaling exchange.                       |
+| Deployment          | Vercel (Frontend), Render (Backend/API) | Serverless hosting for static assets and persistent server for API/WebSockets. |
 
-### Backend Setup
+---
 
-```bash
-cd backend
-npm install
+## ☁️ Deployment Guide
+
+This application uses a hybrid deployment model essential for WebSocket functionality.
+
+### 1. Backend Deployment (Render)
+
+* Deploy the backend repository to Render as a **Web Service**.
+* Ensure the start command is set to `npm start` (or `node src/index.js`).
+* Retrieve the final public API URL (e.g., `https://pingitup-api-xyz.onrender.com`).
+
+### 2. Frontend Deployment (Vercel)
+
+* Deploy the frontend repository to Vercel.
+* In Vercel Project Settings, set the **Root Directory** to `frontend/`.
+* Set this critical environment variable in Vercel:
+
+```
+Key: VITE_API_URL
+Value: https://pingitup-api-xyz.onrender.com
 ```
 
-- Create a `.env` file in the `backend` folder with the following:
-  ```
-  MONGO_URI=your_mongodb_connection_string
-  JWT_SECRET=your_jwt_secret
-  CLOUDINARY_CLOUD_NAME=your_cloudinary_name
-  CLOUDINARY_API_KEY=your_cloudinary_api_key
-  CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-  CLIENT_URL=http://localhost:5173
-  ```
+* **CORS & Cookie Fixes:**
 
-- Start the backend server:
-  ```bash
-  npm run dev
-  ```
+  * Backend JWT cookie: `sameSite: 'None'` and `secure: true` in production.
+  * Backend CORS: Include your Vercel domain (`https://ping-it-up.vercel.app`) in the origin list.
 
-### Frontend Setup
+---
 
-```bash
-cd ../frontend
-npm install
-```
+## 💻 Author
 
-- Start the frontend development server:
-  ```bash
-  npm run dev
-  ```
+Author: Abhishek Sahay
 
-- The app will be available at [http://localhost:5173](http://localhost:5173)
-
-
-## Usage
-
-1. Register a new account or login with existing credentials.
-2. Upload a profile picture.
-3. Start chatting with other users in real time.
-4. Send text or image messages.
-5. See online users and notifications.
-
+[Github](https://github.com/abhi5hek001)
+[LinkedIn](https://www.linkedin.com/in/abhi5hek001/)
