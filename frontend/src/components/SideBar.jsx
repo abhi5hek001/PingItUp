@@ -18,11 +18,28 @@ const SideBar = () => {
     // Dependency on authUser ensures this runs when the user logs in/out
   }, [getUsers, authUser]) 
   
-  const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  // Keeping state for component structure, but it's now ignored for filtering
+  const [showOnlineOnly, setShowOnlineOnly] = useState(false); 
 
-  const filteredUsers = showOnlineOnly
-    ? users.filter((user) => onlineUsers.includes(user._id))
-    : users;
+  // FIX: Force filteredUsers to always be the full user list
+  // 1. Ensure 'users' is an array with (users || []) to prevent the crash.
+  const userList = (users || []);
+  
+  // RETAIN ALL USERS by setting filteredUsers directly to userList, ignoring showOnlineOnly state.
+  const filteredUsers = userList; 
+    
+  // 2. Sort the list: Online users always appear first
+  filteredUsers.sort((a, b) => {
+    const aOnline = onlineUsers.includes(a._id);
+    const bOnline = onlineUsers.includes(b._id);
+    
+    // Put online users first (-1)
+    if (aOnline && !bOnline) return -1;
+    // Put offline users later (1)
+    if (!aOnline && bOnline) return 1;
+    // Maintain relative order if status is the same
+    return 0;
+  });
 
 
   if(isUserLoading) return <SidebarSkeleton/>
@@ -35,7 +52,7 @@ const SideBar = () => {
           <span className='font-bold hidden lg:block text-lg'>Contacts</span>
         </div>
         
-        {/* Filter Section */}
+        {/* Filter Section - COMMENTED OUT TO ALWAYS SHOW ALL USERS */}
         <div className="mt-4 hidden lg:flex items-center justify-between p-2 rounded-lg bg-base-300">
           <label className="cursor-pointer flex items-center gap-2">
             <Filter className="size-4 opacity-70"/>

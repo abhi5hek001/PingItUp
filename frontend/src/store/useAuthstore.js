@@ -17,12 +17,11 @@ export const useAuthStore = create((set,get) => ({
   socket:null,
 
   checkAuth: async () => {
-    try {
+    try { 
       const res = await axiosInstance.get("/auth/check");
       set({ authUser: res.data });
       get().connectSocket();
     } catch (error) {
-      // FIX: Only log the error if it's NOT an expected 401/403 Unauthorized/Forbidden status
       if (error.response?.status !== 401 && error.response?.status !== 403) {
           console.error("Error in checkAuth:", error);
       }

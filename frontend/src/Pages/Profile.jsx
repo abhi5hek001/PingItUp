@@ -56,7 +56,6 @@ const Profile = () => {
       const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
       setSelectedImg(croppedImage); // Update immediate preview
       await updateProfile({ profilePic: croppedImage }); // Send cropped image to backend
-      toast.success("Profile picture updated!");
       closeCropperModal();
     } catch (e) {
       toast.error("Failed to crop image: " + e.message);
