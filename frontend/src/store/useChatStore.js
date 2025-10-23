@@ -6,7 +6,8 @@ import Peer from "simple-peer/simplepeer.min.js"; // Import simple-peer
 
 export const useChatStore = create((set, get) => ({
     messages: [],
-    users: [],
+    // NOTE: Keep 'users' initialized as []
+    users: [], 
     selectedUser: null,
     isUserLoading: false,
     isMessagesLoading: false,
@@ -16,6 +17,10 @@ export const useChatStore = create((set, get) => ({
     localStream: null,
     remoteStream: null,
     isCalling: false,
+    
+    // NEW STATE for Incoming Call Modal/Popup
+    isReceivingCall: false, // Tracks if a call is incoming and awaiting user input
+    incomingCall: null, // Stores { from: userId, fromName: fullName, signalData: offer }
 
     // --- Core Chat Functions ---
     getUsers: async () => {
@@ -27,38 +32,39 @@ export const useChatStore = create((set, get) => ({
             set({ users: usersData })
         }
         catch (error) {
+            // FIX: Suppress toast for 401/403 errors, as this is expected if a user is not logged in
             if (error.response?.status !== 401 && error.response?.status !== 403) {
                 toast.error(error.response?.data?.message || "Failed to fetch users.");
             }
-            set({ users: [] }) // Good practice: reset state on failure
+            set({ users: [] })
         }
         finally {
             set({ isUserLoading: false })
         }
     },
+    // ... (getMessages, sendMessage functions remain unchanged)
     getMessages: async (userId) => {
-        set({ isMessagesLoading: true });
-        try {
-            const res = await axiosInstance.get(`/messages/${userId}`);
-            set({ messages: res.data });
-        } catch (error) {
-            toast.error(error.response?.data?.message || "Failed to fetch messages.");
-        } finally {
-            set({ isMessagesLoading: false });
-        }
+    set({ isMessagesLoading: true });
+    try {
+      const res = await axiosInstance.get(`/messages/${userId}`);
+      set({ messages: res.data });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to fetch messages.");
+    } finally {
+      set({ isMessagesLoading: false });
+    }
     },
-    sendMessage: async (messageData) => {
-        const { selectedUser, messages } = get()
-        try {
-            const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData)
-            set({ messages: [...messages, res.data] })
+    sendMessage:async(messageData)=>{
+        const {selectedUser,messages}=get()
+        try{
+            const res=await axiosInstance.post(`/messages/send/${selectedUser._id}`,messageData)
+            set({messages:[...messages,res.data]})
         }
-        catch (error) {
+        catch(error){
             toast.error(error.response?.data?.message || "Failed to send message.");
         }
 
     },
-    // ... (rest of the file is unchanged)
     subscribeToMessages: () => {
         const { selectedUser } = get()
         if (!selectedUser) return;
@@ -106,10 +112,9 @@ export const useChatStore = create((set, get) => ({
             // Create a new Peer (initiator: true)
             const peer = new Peer({
                 initiator: true,
-                trickle: false, // Use trickle: true for better performance, but false is simpler for testing
+                trickle: false,
                 stream: stream,
                 config: {
-                    // NOTE: You MUST replace this with your own STUN/TURN server config for production
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' }
                     ]
@@ -155,27 +160,25 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
-    // 2. Handle Incoming Call
+    // 2. Handle Incoming Call (Modified for UI Pop-up)
     handleIncomingCall: async ({ from, fromName }) => {
-        if (get().isCalling) {
-            // Already in a call, reject the new incoming call
-            useAuthStore.getState().socket.emit('rejectCall', { to: from });
+        if (get().isCalling || get().isReceivingCall) {
+            // Busy or already receiving, implicitly reject new call by emitting endCall
+            useAuthStore.getState().socket.emit('endCall', { to: from });
             return;
         }
 
-        // Check if the caller is the currently selected user
-        if (get().selectedUser?._id !== from) {
-            // For simplicity, we only handle calls from the currently selected chat partner
-            toast(`Incoming call from ${fromName}! Open chat to accept/reject.`);
-            return;
-        }
-
-        // We rely on the handleSignal listener to create the peer once the offer arrives.
-        toast(`Incoming call from ${fromName}! Click the video icon to accept/reject.`);
+        // CRITICAL: Set state to show the pop-up/notification
+        set({
+            isReceivingCall: true,
+            // Only store essential info for the pop-up
+            incomingCall: { from, fromName }, 
+        });
+        
+        // No toast/window.confirm here, the UI will display the notification.
     },
-
-    // 3. Answer Call
-    // MODIFIED: Takes initialSignalData (the offer) to properly set up the answering peer.
+    
+    // 3. Answer Call (Modified to receive and use buffered offer)
     answerCall: async (callerId, initialSignalData) => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -193,7 +196,6 @@ export const useChatStore = create((set, get) => ({
                 }
             });
 
-            // Signaling event
             peer.on('signal', data => {
                 useAuthStore.getState().socket.emit('signal', {
                     to: callerId,
@@ -201,7 +203,6 @@ export const useChatStore = create((set, get) => ({
                 });
             });
 
-            // Stream event: remote stream received
             peer.on('stream', remoteStream => {
                 set({ remoteStream });
                 toast.success("Call connected!");
@@ -228,29 +229,83 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
-    // 4. Signal Exchange Handler
+    // 4. Signal Exchange Handler (Modified to buffer/process signal)
     handleSignal: ({ from, signalData }) => {
-        const { peer, selectedUser } = get();
+        const { peer, selectedUser, isReceivingCall, incomingCall } = get();
 
-        if (from === selectedUser?._id) {
+        // 1. Always process signals for the existing peer
+        if (peer && !peer.destroyed && from === selectedUser?._id) {
+            peer.signal(signalData);
+            return;
+        }
 
-            // CRITICAL FIX: If we receive the initial offer and the peer isn't set up, create it now.
-            if (!peer && signalData.type === 'offer') {
-                get().answerCall(from, signalData); // Pass the offer data
+        // 2. Handle initial OFFER for incoming call
+        if (!peer && signalData.type === 'offer') {
+            
+            // If the call is incoming (awaiting user action), buffer the offer with the incomingCall state.
+            if (isReceivingCall && incomingCall?.from === from) {
+                set({
+                    // Store the signal data with the incomingCall object for later processing
+                    incomingCall: { ...incomingCall, signalData: signalData } 
+                });
+                // Do NOT call answerCall yet. Wait for user action.
                 return;
             }
-
-            if (peer && !peer.destroyed) {
-                // Signal the existing peer with subsequent data (answer or ICE candidates)
-                peer.signal(signalData);
+            
+            // Fallback for implicit call/answer (shouldn't happen with the new UI flow)
+            if (from === selectedUser?._id) {
+                 get().answerCall(from, signalData);
             }
         }
     },
+    
+    // NEW ACTION: Called by UI when user clicks 'Accept'
+    acceptCall: async () => {
+        const { incomingCall } = get();
+        if (!incomingCall) return;
+        
+        // 1. Select the caller's chat automatically
+        const users = get().users;
+        const caller = users.find(u => u._id === incomingCall.from);
+        
+        if (caller) {
+            set({ selectedUser: caller });
+        }
+        
+        // 2. Clear incoming state *before* starting media
+        set({ isReceivingCall: false, incomingCall: null });
+
+        // 3. Initiate the Answer Peer Connection using the buffered offer
+        // If the signalData (the offer) is available, use it immediately.
+        if (incomingCall.signalData) {
+            get().answerCall(incomingCall.from, incomingCall.signalData);
+        } else {
+             // Fallback: This is a weak spot. It means the OFFER was missed. 
+             // Ideally, the caller should re-send the offer after receiving a custom 'callAccepted' signal.
+             toast.error("Call accepted, but signal offer was missed. Connection may fail.");
+             get().answerCall(incomingCall.from);
+        }
+    },
+    
+    // NEW ACTION: Called by UI when user clicks 'Reject'
+    rejectCall: () => {
+        const { incomingCall } = get();
+        if (!incomingCall) return;
+
+        // Send a custom message/signal back to the caller to end their side
+        // Using 'endCall' socket event is standard for simplicity.
+        useAuthStore.getState().socket.emit('endCall', { to: incomingCall.from });
+        
+        // Clean up receiver state
+        set({ isReceivingCall: false, incomingCall: null });
+        toast.error(`Call from ${incomingCall.fromName} rejected.`);
+    },
+
 
     // 5. End Call
     endCall: (sendSignal = true) => {
         const { peer, localStream, selectedUser } = get();
-
+        
         if (peer && !peer.destroyed) {
             peer.destroy();
         }
@@ -262,12 +317,14 @@ export const useChatStore = create((set, get) => ({
         if (sendSignal && selectedUser) {
             useAuthStore.getState().socket.emit('endCall', { to: selectedUser._id });
         }
-
-        set({
-            peer: null,
-            localStream: null,
-            remoteStream: null,
-            isCalling: false
+        
+        set({ 
+            peer: null, 
+            localStream: null, 
+            remoteStream: null, 
+            isCalling: false,
+            isReceivingCall: false, // Ensure this is cleared
+            incomingCall: null, // Ensure this is cleared
         });
     },
 

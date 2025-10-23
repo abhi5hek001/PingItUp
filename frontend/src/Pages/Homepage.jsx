@@ -2,9 +2,11 @@ import { useChatStore } from '../store/useChatStore'
 import NoChatSelected from '../components/NoChatSelected'
 import ChatContainer from '../components/ChatContainer'
 import SideBar from '../components/SideBar'
+import IncomingCallNotification from '../components/IncomingCallNotification' // Import new component
 
 const Homepage = () => {
-  const {selectedUser}=useChatStore()
+  const {selectedUser, isReceivingCall}=useChatStore() // Extract isReceivingCall
+  
   return (
     // Removed outer wrapper styles to make the chat container full width/height
     <div className='min-h-[calc(100vh-4rem)] flex items-stretch justify-center'>
@@ -14,6 +16,9 @@ const Homepage = () => {
           {!selectedUser ? <NoChatSelected/> : <ChatContainer/>}
         </div>
       </div>
+      
+      {/* RENDER THE INCOMING CALL NOTIFICATION HERE */}
+      {isReceivingCall && <IncomingCallNotification />}
     </div>
   )
 }
